@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include <avr/sleep.h>
 #include <avr/interrupt.h>
+#include <stdlib.h>
 
 static const uint32_t FCPU = 16000000;
 static const uint32_t BAUD = 800000;
@@ -53,6 +54,8 @@ static void update_transmit() {
 	// Transmission almost done, just wait 50us
 	UCSR0B &= ~(1<<UDRIE0);
 	tx_current_buffer = (cur + 1) % 2;
+	
+	UDR0 = 0;
 	start_timer8(1000/8);
 	return;
     }
@@ -80,92 +83,48 @@ ISR(TIMER0_COMPA_vect)
     TIMSK0 = 0; // Disable interrupts
 }
 
-uint8_t cycle = 0;
 
-/*static void update_colors()
-{
-    int i;
-    color_t *buf = buffer[(tx_current_buffer + 1) % 2];
-    for (i = 0; i < NLEDS; i++) {
-	uint8_t x = 4*i;
-	switch((cycle>>5) & 7) {
-	case 0:
-	    buf[i].red = x;
-	    buf[i].green = 0;
-	    buf[i].blue = 0;
-	    break;
-	case 1:
-	    buf[i].red = 0;
-	    buf[i].green = x;
-	    buf[i].blue = 0;
-	    break;
-	case 2:
-	    buf[i].red = 0;
-	    buf[i].green = 0;
-	    buf[i].blue = x;
-	    break;
-	case 3:
-	    buf[i].red = x;
-	    buf[i].green = x;
-	    buf[i].blue = 0;
-	    break;
-	case 4:
-	    buf[i].red = x;
-	    buf[i].green = 0;
-	    buf[i].blue = x;
-	    break;
-	case 5:
-	    buf[i].red = 0;
-	    buf[i].green = x;
-	    buf[i].blue = x;
-	    break;
-	case 6:
-	    buf[i].red = x;
-	    buf[i].green = x;
-	    buf[i].blue = x;
-	    break;
-	case 7:
-	    buf[i].red = 0;
-	    buf[i].green = 0;
-	    buf[i].blue = 0;
-	    break;
-	}
-    }
-    start_transmit();
-    cycle += 1;
-}
-*/
 static void update_colors()
 {
     int i;
+    color_t *old = buffer[tx_current_buffer % 2];
     color_t *buf = buffer[(tx_current_buffer + 1) % 2];
-    for (i = 0; i < NLEDS; i++) {
-	if (i - cycle < 4 && i-cycle >= 0) {
-	    buf[i].red = 0xff;
-	    buf[i].green = 0xa0;
-	    buf[i].blue = 0x0;
+#define NEXT() do { state = __LINE__; return; case __LINE__:; } while (0)
+#define BEGIN() static uint16_t state = 0;  switch (state) { case 0:;
+#define END() } return
+    BEGIN();
+    for (;;) {
+	// Fade old leds
+	for (i = 0; i < NLEDS; i++) {
+	    uint16_t x = old[i].green;
+	    x = ((x<<8) - (50*x))>>8;
+	    buf[i].red = x;
+	    buf[i].green = x;
+	    buf[i].blue = x;
 	}
-	else {
-	    buf[i].red = 0x10;
-	    buf[i].green = 0x0;
-	    buf[i].blue = 0x0;
+	// Maybe light new led
+	if (rand() < RAND_MAX/500) {
+	    uint16_t led = rand() % NLEDS;
+	    uint8_t intensity = rand();
+	    if (old[led].green < intensity) {
+		buf[led].red = intensity;
+		buf[led].green = intensity;
+		buf[led].blue = intensity;
+	    }
 	}
+	NEXT();
     }
-    
-    start_transmit();
-    cycle += 1;
-    if (cycle >= NLEDS) {
-	cycle = 0;
-    }
-       
+    END();
 }
 int main (void)
 {
     init_usart();
     sei();
     
-    for (;;)
+    for (;;) {
 	update_colors();
+	start_transmit();
+    }
     
     return 0;
 }
