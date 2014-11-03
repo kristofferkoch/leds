@@ -1,7 +1,8 @@
 PRG            := leds
 OBJ            := leds.o color.o
+BOOTLOADER_OBJ := bootloader.o i2c.o
 MCU_TARGET     := atmega328p
-OPTIMIZE       := -O2
+OPTIMIZE       := -Os -flto
 
 DEFS           :=
 LIBS           :=
@@ -13,12 +14,12 @@ CC             := avr-gcc
 # Override is only needed by avr-lib build system.
 
 override CFLAGS        := -g -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS)
-override LDFLAGS       := -Wl,-Map,$(PRG).map
+override LDFLAGS       := -Wl,-Map,$(PRG).map -fwhole-program
 
 OBJCOPY        := avr-objcopy
 OBJDUMP        := avr-objdump
 
-all: $(PRG).elf lst
+all: $(PRG).elf lst size
 
 program: $(PRG).hex all
 	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U flash:w:$(PRG).hex:i
@@ -30,6 +31,10 @@ off:
 
 $(PRG).elf: $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+bootloader.elf: $(BOOTLOADER_OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+size:
+	avr-size *.o *.elf
 
 # dependency:
 #leds.o: leds.c

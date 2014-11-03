@@ -1,50 +1,46 @@
 #include "i2c.h"
+#include "coroutine.h"
 #include <stdint.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
-typedef struct {
-    enum {
-	I2C_IDLE,
-	I2C_COMMAND_RECEIVED
-    } state;
-    uint8_t command;
-} i2c_state_t;
+volatile uint8_t rxdata_rdy;
+volatile uint8_t rxdata;
+volatile uint8_t txdata;
 
-i2c_state_t i2c_state;
+i2c_data_t i2c_cb_transmit(uint16_t count) {
+    i2c_data_t ret;
 
-uint8_t i2c_cb_receive(uint8_t data) {
-    switch (i2c_state.state) {
-    case I2C_IDLE:
-	i2c_state.command = data;
-	switch (data) {
-	case CMD_ID:
-	    i2c_state.state = I2C_COMMAND_RECEIVED;
-	    return 1; // ACK
-	default:
-	    return 0; // NACK, invalid command
-	}
-    default:
-	return 0; // NACK
+    return ret;
+}
+void i2c_cb_transmit_done(void) {
+
+}
+uint8_t i2c_cb_receive(i2c_data_t data, uint16_t count) {
+    rxdata = data.byte;
+    rxdata_rdy = 1;
+    return 1;
+}
+void i2c_cb_receive_done(void) {
+
+}
+
+static void process_command() {
+    CR_BEGIN();
+    for (;;) {
+	CR_WAIT_ATOMIC(rxdata_rdy);
+	uint8_t data = rxdata;
+	sei();
     }
-}
-
-void i2c_cb_stop(void) {
-    i2c_state.state = IDLE;
-}
-
-uint8_t i2c_cb_transmit(uint8_t *data) {
-    switch (i2c_state.state) {
-    default:
-	*data = 0xff;
-	return 0;
-    }
-}
-
-void i2c_cb_transmit_done(uint8_t ack) {
+    CR_END();
 }
 
 int main(void) {
+    i2c_init();
+    rxdata_rdy = 0;
+    sei();
     for (;;) {
-	i2c_process();
+	process_command();
 	// TODO: sleep
     }
     return 0;

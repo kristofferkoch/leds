@@ -26,5 +26,17 @@
 	} while(0)
 #define CR_WAIT(cond) _CR_WAIT(cond, __COUNTER__)
 
+#define _CR_WAIT_ATOMIC(cond, cnt)      	\
+	do {					\
+	    cr_state = cnt;			\
+	    case cnt:				\
+	    cli();				\
+	    if (!(cond)) {			\
+	        sei();				\
+		return;				\
+	    }					\
+	} while(0)
+#define CR_WAIT_ATOMIC(cond) _CR_WAIT_ATOMIC(cond, __COUNTER__)
+
 #define CR_END() }
 #endif
