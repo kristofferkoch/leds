@@ -1,5 +1,5 @@
 PRG            := leds
-OBJ            := leds.o
+OBJ            := leds.o color.o
 MCU_TARGET     := atmega328p
 OPTIMIZE       := -O2
 
@@ -20,8 +20,13 @@ OBJDUMP        := avr-objdump
 
 all: $(PRG).elf lst
 
-program: all
-	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U flash:w:$(PRG).elf:e
+program: $(PRG).hex all
+	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U flash:w:$(PRG).hex:i
+
+power:
+	echo -e "m\n9\nW" > /dev/ttyUSB0
+off:
+	echo -e "m\n9\nw" > /dev/ttyUSB0
 
 $(PRG).elf: $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -41,3 +46,5 @@ lst:  $(PRG).lst
 
 .PHONY: clean lst all program
 
+%.hex: %.elf
+	$(OBJCOPY) -j .text -j .data -O ihex $< $@
