@@ -90,7 +90,7 @@ static uint8_t read(uint8_t *addr) {
     switch (*addr) {
     case offsetof(memory_map_t, status):
 	memory_map.status.overflow = 0;
-	break;
+	return ret; // Don't increment addr to allow polling of status
     case offsetof(memory_map_t, data):
 	// Read from flash
 	ret = pgm_read_byte(memory_map.addr);
@@ -124,6 +124,7 @@ ISR(TWI_vect) {
 	}
 	write(&reg_addr, TWDR);
 	break;
+    case TW_ST_SLA_ACK: // 0xA8
     case TW_ST_DATA_ACK: // 0xB8
 	// Transmit data
 	TWDR = read(&reg_addr);
