@@ -39,7 +39,9 @@ typedef enum {
 volatile command_t command;
 volatile uint8_t have_command = 0;
 
+// 28 bytes
 static void isr_handle_command(command_t cmd) {
+    return;
     if (memory_map.status.busy)
 	return;
     memory_map.status.busy = 1;
@@ -47,6 +49,7 @@ static void isr_handle_command(command_t cmd) {
     have_command = 1;
 }
 
+// write takes 132 bytes
 static void write(uint8_t *addr, uint8_t data) {
     uint8_t *bytes = (uint8_t *)&memory_map;
     if (*addr >= sizeof(memory_map)) {
@@ -76,6 +79,7 @@ static void write(uint8_t *addr, uint8_t data) {
     *addr += 1;
 }
 
+// read takes 80 bytes
 static uint8_t read(uint8_t *addr) {
     uint8_t *bytes = (uint8_t *)&memory_map;
     if (*addr >= sizeof(memory_map)) {
@@ -97,11 +101,15 @@ static uint8_t read(uint8_t *addr) {
     return ret;
 }
 
+ISR(BADISR_vect) {
+    for(;;);
+}
 
 ISR(TWI_vect) {
     const uint8_t COMMON_TWCR = (1 << TWEN) | (1 << TWIE) | (1 << TWINT);
-    uint8_t twsr = TW_STATUS;
     static uint8_t reg_addr;
+    
+    uint8_t twsr = TW_STATUS;
     
     switch (twsr) {
     case TW_SR_SLA_ACK: // 0x60
@@ -132,7 +140,7 @@ ISR(TWI_vect) {
     TWCR = COMMON_TWCR | (1 << TWEA);
 }
 
-
+// With -Os and gcc 4.8.1, perform_crc takes 80 bytes
 static void perform_crc() {
     uint16_t i;
     uint16_t crc = 0xffff;
@@ -153,13 +161,11 @@ static void execute_command(command_t cmd) {
 	cli();
 	boot_page_erase_safe(memory_map.addr);
 	sei();
-	boot_spm_busy_wait();
 	break;
     case CMD_WRITE:
 	cli();
 	boot_page_write_safe(memory_map.addr);
 	sei();
-	boot_spm_busy_wait();
 	break;
     case CMD_CRC:
 	perform_crc();
@@ -168,18 +174,18 @@ static void execute_command(command_t cmd) {
     default:
 	break;
     }
+    boot_spm_busy_wait();
 }
 
 int main(void) {
-    
+
     TWCR = 0;
-    TWSR = 0;
     TWCR = (1 << TWINT) | (1 << TWEA) | (1 << TWEN) | (1 << TWIE);
-    TWAR = 72;//I2C_SLAVE_ADDR;
-    TWAMR = 0;
+    TWAR = 0x02;//I2C_SLAVE_ADDR;
 
     MCUCR = (1<<IVCE);
     MCUCR = (1<<IVSEL);
+    
     sei();
     
     volatile memory_map_t *map = &memory_map;

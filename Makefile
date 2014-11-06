@@ -4,7 +4,7 @@ BOOTLOADER_OBJ := bootloader.o
 MCU_TARGET     := atmega328p
 OPTIMIZE       := -Os -fshort-enums -flto
 DEFS           :=
-BOOTSTART      := 0x3e00
+BOOTSTART      := 0x7c00
 
 # You should not have to change anything below here.
 
