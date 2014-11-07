@@ -6,7 +6,7 @@ class ProtocolError(Exception):
 
 class BusPirateI2C:
     def __init__(self, port="/dev/ttyUSB0", baud=115200):
-        self._ser = serial.Serial(port=port, baudrate=baud, timeout=0.01)
+        self._ser = serial.Serial(port=port, baudrate=baud, timeout=0.005)
         self._enterBitbang()
         self._enterI2C()
         self.setSpeed(3)
@@ -21,7 +21,7 @@ class BusPirateI2C:
         raise ProtocolError("Could not enter bitbang")
     def _enterI2C(self):
         self._ser.write(b"\x02")
-        resp = self._ser.read(10)
+        resp = self._ser.read(4)
         if resp != b"I2C1":
             raise ProtocolError("Could not enter I2C mode. Got {}.".format(resp))
     def __del__(self):
@@ -41,7 +41,7 @@ class BusPirateI2C:
         assert x == b"\x01", x
     def readByteRaw(self):
         self._ser.write(b"\x04")
-        r = self._ser.read(10)
+        r = self._ser.read(1)
         assert len(r) == 1, r
         return r
     def ack(self):
