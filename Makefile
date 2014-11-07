@@ -2,7 +2,7 @@ PRG            := leds
 OBJ            := leds.o color.o
 BOOTLOADER_OBJ := bootloader.o
 MCU_TARGET     := atmega328p
-OPTIMIZE       := -Os -fshort-enums -flto
+OPTIMIZE       := -Os -fshort-enums  -flto
 DEFS           :=
 BOOTSTART      := 0x7c00
 
@@ -24,7 +24,7 @@ program: $(PRG).hex all
 	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U flash:w:$(PRG).hex:i
 
 program-bootloader: bootloader.hex size
-	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U flash:w:bootloader.hex:i
+	avrdude -c buspirate -P /dev/ttyUSB0 -e -p m328p -U flash:w:bootloader.hex:i
 
 fuses:
 	avrdude -c buspirate -P /dev/ttyUSB0 -p m328p -U TODO

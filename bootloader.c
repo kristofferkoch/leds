@@ -14,20 +14,18 @@ typedef struct {
 } status_t;
 
 typedef struct {
-    status_t status;
-    uint16_t id;
-    uint16_t version;
+    status_t status;      // 0
+    uint8_t signature[4]; // 1-4
+    uint16_t version; // 5-6
     // All registers after here are read/write
-    uint16_t addr;
-    uint8_t cmd;
-    uint8_t data; // Non-incrementing. Increments addr instead.
+    uint16_t addr; // 7-8
+    uint8_t cmd; // 9
+    uint8_t data; // 10 Non-incrementing. Increments addr instead.
     uint16_t length;
     uint16_t result;
 } memory_map_t;
 
-memory_map_t memory_map = {.id = 0xabba,
-			   .version = 0x0001};
-
+memory_map_t memory_map;
 typedef enum {
     CMD_NOP = 0x00,
     CMD_RESET = 0x01,
@@ -56,7 +54,7 @@ static void write(uint8_t *addr, uint8_t data) {
 	memory_map.status.overflow = 1;
 	return;
     }
-    if (*addr < offsetof(memory_map_t, cmd)) {
+    if (*addr < offsetof(memory_map_t, addr)) {
 	return; // Read only
     }
     switch (*addr) {
@@ -110,7 +108,7 @@ ISR(TWI_vect) {
     static uint8_t reg_addr;
     
     uint8_t twsr = TW_STATUS;
-    
+
     switch (twsr) {
     case TW_SR_SLA_ACK: // 0x60
 	// Reset address
@@ -180,16 +178,23 @@ static void execute_command(command_t cmd) {
 
 int main(void) {
 
+    memory_map.version = 1;
+    memory_map.signature[0] = boot_signature_byte_get(0);
+    memory_map.signature[1] = boot_signature_byte_get(2);
+    memory_map.signature[2] = boot_signature_byte_get(4);
+    memory_map.signature[3] = boot_signature_byte_get(1);
+
     TWCR = 0;
     TWCR = (1 << TWINT) | (1 << TWEA) | (1 << TWEN) | (1 << TWIE);
     TWAR = 0x02;//I2C_SLAVE_ADDR;
 
     MCUCR = (1<<IVCE);
     MCUCR = (1<<IVSEL);
-    
+
     sei();
-    
+
     volatile memory_map_t *map = &memory_map;
+    
     for (;;) {
 	if (have_command) {
 	    command_t cmd = command;
